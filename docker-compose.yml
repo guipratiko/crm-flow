@@ -1,0 +1,25 @@
+services:
+  crm-flow-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: crmflow
+      POSTGRES_PASSWORD: crmflow
+      POSTGRES_DB: crmflow
+    ports:
+      - "5434:5432"
+    volumes:
+      - crm_flow_pg:/var/lib/postgresql/data
+
+  crm-flow:
+    build: .
+    ports:
+      - "4340:4340"
+    env_file:
+      - .env
+    depends_on:
+      - crm-flow-db
+    environment:
+      DATABASE_URL: postgresql://crmflow:crmflow@crm-flow-db:5432/crmflow?schema=public
+
+volumes:
+  crm_flow_pg:

@@ -1,0 +1,277 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["crm_flow"]
+}
+
+enum DealStatus {
+  open
+  won
+  lost
+
+  @@schema("crm_flow")
+}
+
+enum ActivityType {
+  call
+  meeting
+  task
+  email
+  whatsapp
+  followup
+  note
+
+  @@schema("crm_flow")
+}
+
+enum ActivityStatus {
+  pending
+  completed
+  cancelled
+
+  @@schema("crm_flow")
+}
+
+enum TimelineEntityType {
+  contact
+  company
+  deal
+
+  @@schema("crm_flow")
+}
+
+enum ProductStatus {
+  active
+  inactive
+
+  @@schema("crm_flow")
+}
+
+model TenantProfile {
+  id        String   @id
+  name      String
+  document  String?
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@schema("crm_flow")
+  @@map("tenant_profiles")
+}
+
+model Contact {
+  id                String   @id @default(uuid())
+  tenantId          String   @map("tenant_id")
+  name              String
+  email             String?
+  phone             String?
+  whatsapp          String?
+  position          String?
+  companyId         String?  @map("company_id")
+  responsibleUserId String?  @map("responsible_user_id")
+  tags              String[] @default([])
+  notes             String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  company      ClientCompany? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  dealLinks    DealContact[]
+  activities   Activity[]
+  mainDeals    Deal[]         @relation("DealMainContact")
+
+  @@index([tenantId])
+  @@index([tenantId, companyId])
+  @@schema("crm_flow")
+  @@map("contacts")
+}
+
+model ClientCompany {
+  id                String   @id @default(uuid())
+  tenantId          String   @map("tenant_id")
+  name              String
+  document          String?
+  segment           String?
+  website           String?
+  phone             String?
+  email             String?
+  address           String?
+  responsibleUserId String?  @map("responsible_user_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  contacts   Contact[]
+  deals      Deal[]
+  activities Activity[]
+
+  @@index([tenantId])
+  @@schema("crm_flow")
+  @@map("client_companies")
+}
+
+model Pipeline {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  stages PipelineStage[]
+  deals  Deal[]
+
+  @@index([tenantId])
+  @@schema("crm_flow")
+  @@map("pipelines")
+}
+
+model PipelineStage {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  pipelineId  String   @map("pipeline_id")
+  name        String
+  order       Int
+  color       String   @default("#3B82F6")
+  probability Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals    Deal[]
+
+  @@index([tenantId, pipelineId])
+  @@schema("crm_flow")
+  @@map("pipeline_stages")
+}
+
+model Deal {
+  id                String     @id @default(uuid())
+  tenantId          String     @map("tenant_id")
+  title             String
+  description       String?
+  value             Decimal    @default(0) @db.Decimal(14, 2)
+  status            DealStatus @default(open)
+  probability       Int        @default(0)
+  expectedCloseDate DateTime?  @map("expected_close_date")
+  pipelineId        String     @map("pipeline_id")
+  stageId           String     @map("stage_id")
+  companyId         String?    @map("company_id")
+  mainContactId     String?    @map("main_contact_id")
+  responsibleUserId String?    @map("responsible_user_id")
+  lossReason        String?    @map("loss_reason")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  pipeline    Pipeline        @relation(fields: [pipelineId], references: [id])
+  stage       PipelineStage   @relation(fields: [stageId], references: [id])
+  company     ClientCompany?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  mainContact Contact?        @relation("DealMainContact", fields: [mainContactId], references: [id], onDelete: SetNull)
+  contacts    DealContact[]
+  products    DealProduct[]
+  activities  Activity[]
+
+  @@index([tenantId])
+  @@index([tenantId, stageId])
+  @@index([tenantId, status])
+  @@schema("crm_flow")
+  @@map("deals")
+}
+
+model DealContact {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  contactId String   @map("contact_id")
+  dealId    String   @map("deal_id")
+  role      String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  deal    Deal    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, contactId])
+  @@index([tenantId])
+  @@schema("crm_flow")
+  @@map("deal_contacts")
+}
+
+model Product {
+  id          String        @id @default(uuid())
+  tenantId    String        @map("tenant_id")
+  name        String
+  description String?
+  category    String?
+  price       Decimal       @default(0) @db.Decimal(14, 2)
+  status      ProductStatus @default(active)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  dealProducts DealProduct[]
+
+  @@index([tenantId])
+  @@schema("crm_flow")
+  @@map("products")
+}
+
+model DealProduct {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  dealId    String   @map("deal_id")
+  productId String   @map("product_id")
+  quantity  Int      @default(1)
+  unitPrice Decimal  @default(0) @map("unit_price") @db.Decimal(14, 2)
+  discount  Decimal  @default(0) @db.Decimal(14, 2)
+  total     Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  deal    Deal    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, dealId])
+  @@schema("crm_flow")
+  @@map("deal_products")
+}
+
+model Activity {
+  id                String         @id @default(uuid())
+  tenantId          String         @map("tenant_id")
+  type              ActivityType
+  title             String
+  description       String?
+  dueDate           DateTime?      @map("due_date")
+  status            ActivityStatus @default(pending)
+  contactId         String?        @map("contact_id")
+  companyId         String?        @map("company_id")
+  dealId            String?        @map("deal_id")
+  responsibleUserId String?        @map("responsible_user_id")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  contact Contact?        @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  company ClientCompany?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  deal    Deal?           @relation(fields: [dealId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, dueDate])
+  @@schema("crm_flow")
+  @@map("activities")
+}
+
+model TimelineEvent {
+  id          String             @id @default(uuid())
+  tenantId    String             @map("tenant_id")
+  entityType  TimelineEntityType @map("entity_type")
+  entityId    String             @map("entity_id")
+  action      String
+  description String
+  metadata    Json?
+  userId      String?            @map("user_id")
+  createdAt   DateTime           @default(now()) @map("created_at")
+
+  @@index([tenantId, entityType, entityId])
+  @@schema("crm_flow")
+  @@map("timeline_events")
+}
