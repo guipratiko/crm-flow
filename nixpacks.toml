@@ -1,0 +1,9 @@
+# Easypanel/Nixpacks: instalar devDependencies no build (prisma generate, etc.)
+[phases.install]
+cmds = ["npm ci --include=dev"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm run start"
