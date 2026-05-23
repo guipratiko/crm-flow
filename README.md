@@ -38,7 +38,7 @@ npm run setup:db:baseline
 
 **Sem Docker**: mesmo Postgres do MindClerky (`...@host:5433/sandbox`). Tabelas no schema **`crm_flow`** (não conflita com `contacts` do Chat em `public`).
 
-API: `http://localhost:4340/api/crm-flow`
+API: `http://localhost:4339/api/crm-flow`
 
 ## Integração OnlyFlow
 
@@ -47,8 +47,40 @@ O Frontend chama `https://<backend>/api/crm-flow/*` (proxy com JWT + header de t
 Variáveis no **Backend**:
 
 ```env
-CRM_FLOW_SERVICE_URL=http://localhost:4340
+CRM_FLOW_SERVICE_URL=http://localhost:4339
 ```
+
+### Sandbox (OnlyFlow)
+
+| Serviço   | URL |
+|-----------|-----|
+| Frontend  | `https://sandbox.onlyflow.com.br` |
+| Backend   | `https://back-sandbox.onlyflow.com.br` |
+| CRM-Flow  | `https://crm-flow-sandbox.onlyflow.com.br` |
+
+**Backend (`sandbox-back`)** — obrigatório:
+
+```env
+CRM_FLOW_SERVICE_URL=https://crm-flow-sandbox.onlyflow.com.br
+```
+
+**CRM-Flow (`crm-flow-sandbox`)** — env:
+
+```env
+PORT=4339
+NODE_ENV=production
+DATABASE_URL=postgresql://USER:PASS@easy.onlyflow.com.br:5433/sandbox?sslmode=disable
+JWT_SECRET=<mesmo JWT_SECRET do sandbox-back>
+CORS_ORIGIN=https://sandbox.onlyflow.com.br
+```
+
+Desenvolvimento local (Backend + CRM-Flow na mesma máquina):
+
+```env
+CRM_FLOW_SERVICE_URL=http://localhost:4339
+```
+
+Verifique após deploy: `GET https://crm-flow-sandbox.onlyflow.com.br/` → `{"status":"ok","service":"CRM-Flow",...}`
 
 ## Endpoints (Fase 1)
 

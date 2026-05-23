@@ -28,15 +28,11 @@ app.get('/', (_req, res) => {
 app.get('/health', async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', service: 'CRM-Flow', database: 'connected' });
-  } catch (err) {
-    console.error('[CRM-Flow] Health check — banco indisponível:', err);
-    res.status(503).json({
-      status: 'error',
-      service: 'CRM-Flow',
-      database: 'disconnected',
-      message: 'DATABASE_URL inacessível ou schema crm_flow não configurado',
-    });
+    res.json({ status: 'ok', service: 'CRM-Flow', database: true });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Falha ao conectar ao Postgres';
+    console.error('❌ CRM-Flow /health:', message);
+    res.status(503).json({ status: 'error', service: 'CRM-Flow', database: false, message });
   }
 });
 
@@ -44,17 +40,21 @@ app.use('/api/crm-flow', routes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-app.listen(SERVER_CONFIG.PORT, () => {
-  console.log(`🚀 CRM-Flow na porta ${SERVER_CONFIG.PORT}`);
-  void prisma
-    .$queryRaw`SELECT 1`
-    .then(() => console.log('✅ CRM-Flow: Postgres conectado (schema crm_flow)'))
-    .catch((err) =>
-      console.error(
-        '❌ CRM-Flow: falha ao conectar no Postgres — dashboard retornará 500 até corrigir DATABASE_URL / setup:db:',
-        err instanceof Error ? err.message : err
-      )
-    );
-});
+async function start() {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    console.log('✅ CRM-Flow: Postgres conectado');
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error('❌ CRM-Flow: falha ao conectar Postgres —', message);
+    process.exit(1);
+  }
+
+  app.listen(SERVER_CONFIG.PORT, () => {
+    console.log(`🚀 CRM-Flow na porta ${SERVER_CONFIG.PORT}`);
+  });
+}
+
+start();
 
 export default app;

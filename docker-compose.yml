@@ -13,7 +13,7 @@ services:
   crm-flow:
     build: .
     ports:
-      - "4340:4340"
+      - "4339:4339"
     env_file:
       - .env
     depends_on:

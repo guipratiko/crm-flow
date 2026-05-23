@@ -1,38 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
-import { SERVER_CONFIG } from '../config/constants';
 
 export interface AppError extends Error {
   statusCode?: number;
   status?: string;
 }
 
-function publicErrorMessage(err: AppError): string {
-  if (err.statusCode && err.statusCode < 500) {
-    return err.message;
+function sanitizeErrorMessage(err: AppError, statusCode: number): string {
+  const msg = err.message || 'Erro interno do servidor';
+  const isProd = process.env.NODE_ENV === 'production';
+  if (isProd && statusCode >= 500) {
+    if (/prisma|Can't reach database|database server/i.test(msg)) {
+      return 'Falha ao acessar o banco de dados CRM';
+    }
+    if (!err.statusCode) return 'Erro interno do servidor';
   }
-
-  const raw = err.message || '';
-  if (
-    raw.includes("Can't reach database") ||
-    raw.includes('P1001') ||
-    raw.includes('Connection refused') ||
-    raw.includes('ECONNREFUSED')
-  ) {
-    return 'Banco de dados CRM indisponível. Verifique DATABASE_URL no CRM-Flow e conectividade com o Postgres.';
-  }
-  if (
-    raw.includes('does not exist') ||
-    raw.includes('P2021') ||
-    raw.includes('schema "crm_flow"') ||
-    raw.includes('crm_flow.')
-  ) {
-    return 'Schema CRM não inicializado. No CRM-Flow execute: npm run setup:db';
-  }
-
-  if (SERVER_CONFIG.NODE_ENV === 'production') {
-    return 'Erro interno do serviço CRM';
-  }
-  return raw || 'Erro interno do servidor';
+  return msg;
 }
 
 export const errorHandler = (
@@ -43,11 +25,11 @@ export const errorHandler = (
 ): void => {
   const statusCode = err.statusCode || 500;
   if (statusCode >= 500) {
-    console.error('[CRM-Flow]', err);
+    console.error('[CRM-Flow]', err.message, err.stack);
   }
   res.status(statusCode).json({
     status: 'error',
-    message: publicErrorMessage(err),
+    message: sanitizeErrorMessage(err, statusCode),
   });
 };
 

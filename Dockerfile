@@ -15,5 +15,5 @@ RUN npm ci --omit=dev
 COPY prisma ./prisma/
 RUN npx prisma generate
 COPY --from=build /app/dist ./dist
-EXPOSE 4340
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+EXPOSE 4339
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/server.js"]

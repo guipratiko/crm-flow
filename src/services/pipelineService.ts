@@ -54,9 +54,5 @@ export async function ensureDefaultPipeline(tenantId: string) {
     });
   }
 
-  if (!pipeline?.stages?.length) {
-    throw new Error('Não foi possível inicializar o funil padrão do CRM');
-  }
-
-  return pipeline;
+  return pipeline!;
 }
