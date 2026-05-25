@@ -7,6 +7,9 @@ import * as products from '../controllers/productsController';
 import * as activities from '../controllers/activitiesController';
 import * as timeline from '../controllers/timelineController';
 import * as dashboard from '../controllers/dashboardController';
+import * as chatLinks from '../controllers/chatLinksController';
+import * as pipeline from '../controllers/pipelineController';
+import * as dealTimelineMessages from '../controllers/dealTimelineMessagesController';
 
 const router = Router();
 
@@ -20,6 +23,7 @@ router.post('/contacts', contacts.createContact);
 router.put('/contacts/:id', contacts.updateContact);
 router.delete('/contacts/:id', contacts.deleteContact);
 
+router.get('/companies/lookup-cnpj/:cnpj', companies.lookupCompanyCnpj);
 router.get('/companies', companies.listCompanies);
 router.get('/companies/:id', companies.getCompany);
 router.post('/companies', companies.createCompany);
@@ -27,8 +31,14 @@ router.put('/companies/:id', companies.updateCompany);
 router.delete('/companies/:id', companies.deleteCompany);
 
 router.get('/pipeline', deals.listPipelines);
+router.post('/pipeline/stages', pipeline.createStage);
+router.put('/pipeline/stages/reorder', pipeline.reorderStages);
+router.put('/pipeline/stages/:id', pipeline.updateStage);
+router.delete('/pipeline/stages/:id', pipeline.deleteStage);
 router.get('/deals', deals.listDeals);
 router.get('/deals/:id', deals.getDeal);
+router.get('/deals/:id/timeline-messages', dealTimelineMessages.listDealTimelineMessages);
+router.put('/deals/:id/timeline-messages', dealTimelineMessages.setDealTimelineMessages);
 router.post('/deals', deals.createDeal);
 router.put('/deals/:id', deals.updateDeal);
 router.delete('/deals/:id', deals.deleteDeal);
@@ -52,5 +62,11 @@ router.patch('/activities/:id/complete', activities.completeActivity);
 router.get('/timeline/contact/:id', timeline.getContactTimeline);
 router.get('/timeline/company/:id', timeline.getCompanyTimeline);
 router.get('/timeline/deal/:id', timeline.getDealTimeline);
+
+router.get('/chat-links/by-chat/:chatContactId', chatLinks.getLinkByChatContact);
+router.get('/chat-links/by-crm/:crmContactId', chatLinks.listLinksByCrmContact);
+router.post('/chat-links', chatLinks.createChatLink);
+router.post('/chat-links/batch-status', chatLinks.batchLinkStatus);
+router.delete('/chat-links/by-chat/:chatContactId', chatLinks.deleteLinkByChatContact);
 
 export default router;

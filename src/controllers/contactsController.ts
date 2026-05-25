@@ -66,6 +66,7 @@ export async function createContact(req: AuthRequest, res: Response, next: NextF
         responsibleUserId: data.responsibleUserId ?? req.user?.id ?? null,
         tags: data.tags ?? [],
         notes: data.notes ?? null,
+        source: data.source ?? 'manual',
       },
     });
     await recordTimeline({

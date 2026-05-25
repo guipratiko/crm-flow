@@ -40,6 +40,8 @@ npm run setup:db:baseline
 
 API: `http://localhost:4339/api/crm-flow`
 
+Health público (padrão OnlyFlow): `GET http://localhost:4339/api/public/status`
+
 ## Integração OnlyFlow
 
 O Frontend chama `https://<backend>/api/crm-flow/*` (proxy com JWT + header de tenant).

@@ -79,9 +79,11 @@ model Contact {
   updatedAt         DateTime @updatedAt @map("updated_at")
 
   company      ClientCompany? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  source       String           @default("manual")
   dealLinks    DealContact[]
   activities   Activity[]
-  mainDeals    Deal[]         @relation("DealMainContact")
+  mainDeals    Deal[]           @relation("DealMainContact")
+  chatLinks    ChatContactLink[]
 
   @@index([tenantId])
   @@index([tenantId, companyId])
@@ -93,12 +95,15 @@ model ClientCompany {
   id                String   @id @default(uuid())
   tenantId          String   @map("tenant_id")
   name              String
+  tradeName         String?  @map("trade_name")
   document          String?
   segment           String?
   website           String?
   phone             String?
   email             String?
   address           String?
+  partners          String[] @default([]) @map("partners")
+  logoUrl           String?  @map("logo_url")
   responsibleUserId String?  @map("responsible_user_id")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
@@ -172,12 +177,29 @@ model Deal {
   contacts    DealContact[]
   products    DealProduct[]
   activities  Activity[]
+  timelineMessages DealTimelineMessage[]
 
   @@index([tenantId])
   @@index([tenantId, stageId])
   @@index([tenantId, status])
   @@schema("crm_flow")
   @@map("deals")
+}
+
+model DealTimelineMessage {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  dealId        String   @map("deal_id")
+  chatContactId String   @map("chat_contact_id")
+  messageId     String   @map("message_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, messageId])
+  @@index([tenantId, dealId])
+  @@schema("crm_flow")
+  @@map("deal_timeline_messages")
 }
 
 model DealContact {
@@ -258,6 +280,24 @@ model Activity {
   @@index([tenantId, dueDate])
   @@schema("crm_flow")
   @@map("activities")
+}
+
+model ChatContactLink {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  crmContactId   String   @map("crm_contact_id")
+  chatContactId  String   @map("chat_contact_id")
+  chatInstanceId String   @map("chat_instance_id")
+  chatChannel    String   @map("chat_channel") @db.VarChar(20)
+  linkedByUserId String?  @map("linked_by_user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  contact Contact @relation(fields: [crmContactId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, chatContactId])
+  @@index([tenantId, crmContactId])
+  @@schema("crm_flow")
+  @@map("chat_contact_links")
 }
 
 model TimelineEvent {
