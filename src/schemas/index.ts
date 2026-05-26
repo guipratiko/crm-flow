@@ -71,7 +71,7 @@ export const activityBody = z.object({
   type: z.enum(['call', 'meeting', 'task', 'email', 'whatsapp', 'followup', 'note']),
   title: z.string().min(1),
   description: z.string().optional().nullable(),
-  dueDate: z.string().datetime().optional().nullable(),
+  dueDate: z.string().optional().nullable(),
   status: z.enum(['pending', 'completed', 'cancelled']).optional(),
   contactId: z.string().uuid().optional().nullable(),
   companyId: z.string().uuid().optional().nullable(),

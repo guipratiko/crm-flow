@@ -53,6 +53,7 @@ router.post('/products', products.createProduct);
 router.put('/products/:id', products.updateProduct);
 router.delete('/products/:id', products.deleteProduct);
 
+router.get('/activities/deal-summaries', activities.dealActivitySummaries);
 router.get('/activities', activities.listActivities);
 router.post('/activities', activities.createActivity);
 router.put('/activities/:id', activities.updateActivity);

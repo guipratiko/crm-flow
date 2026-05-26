@@ -37,7 +37,10 @@ export async function getDeal(req: AuthRequest, res: Response, next: NextFunctio
     const tenantId = req.tenantId!;
     const deal = await prisma.deal.findFirst({
       where: { id: req.params.id, tenantId },
-      include: dealInclude,
+      include: {
+        ...dealInclude,
+        activities: { orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }], take: 50 },
+      },
     });
     if (!deal) return next(createError('Negócio não encontrado', 404));
     res.json({ status: 'success', data: deal });
@@ -188,24 +191,36 @@ export async function addDealContact(req: AuthRequest, res: Response, next: Next
     if (!parsed.success) return next(createError(parsed.error.errors[0]?.message || 'Dados inválidos'));
     const deal = await prisma.deal.findFirst({ where: { id: req.params.dealId, tenantId } });
     if (!deal) return next(createError('Negócio não encontrado', 404));
-    const link = await prisma.dealContact.create({
-      data: {
+    const contact = await prisma.contact.findFirst({
+      where: { id: parsed.data.contactId, tenantId },
+    });
+    if (!contact) return next(createError('Contato não encontrado', 404));
+    const whereKey = { dealId: deal.id, contactId: parsed.data.contactId };
+    const alreadyLinked = await prisma.dealContact.findUnique({
+      where: { dealId_contactId: whereKey },
+    });
+    const link = await prisma.dealContact.upsert({
+      where: { dealId_contactId: whereKey },
+      create: {
         tenantId,
         dealId: deal.id,
         contactId: parsed.data.contactId,
         role: parsed.data.role ?? null,
       },
+      update: parsed.data.role ? { role: parsed.data.role } : {},
       include: { contact: true },
     });
-    await recordTimeline({
-      tenantId,
-      entityType: 'deal',
-      entityId: deal.id,
-      action: 'deal_contact_linked',
-      description: `Contato vinculado ao negócio (${parsed.data.role || 'envolvido'})`,
-      userId: req.user?.id,
-    });
-    res.status(201).json({ status: 'success', data: link });
+    if (!alreadyLinked) {
+      await recordTimeline({
+        tenantId,
+        entityType: 'deal',
+        entityId: deal.id,
+        action: 'deal_contact_linked',
+        description: `Contato vinculado ao negócio (${parsed.data.role || 'envolvido'})`,
+        userId: req.user?.id,
+      });
+    }
+    res.status(alreadyLinked ? 200 : 201).json({ status: 'success', data: link });
   } catch (e) {
     next(e);
   }

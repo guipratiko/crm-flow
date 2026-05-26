@@ -267,8 +267,10 @@ model Activity {
   contactId         String?        @map("contact_id")
   companyId         String?        @map("company_id")
   dealId            String?        @map("deal_id")
-  responsibleUserId String?        @map("responsible_user_id")
-  createdAt         DateTime       @default(now()) @map("created_at")
+  responsibleUserId     String?   @map("responsible_user_id")
+  reminderSentAt        DateTime? @map("reminder_sent_at")
+  overdueReminderSentAt DateTime? @map("overdue_reminder_sent_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime       @updatedAt @map("updated_at")
 
   contact Contact?        @relation(fields: [contactId], references: [id], onDelete: SetNull)
@@ -280,6 +282,19 @@ model Activity {
   @@index([tenantId, dueDate])
   @@schema("crm_flow")
   @@map("activities")
+}
+
+model ActivityDigestLog {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  userId    String   @map("user_id")
+  digestDay DateTime @map("digest_day") @db.Date
+  sentAt    DateTime @default(now()) @map("sent_at")
+
+  @@unique([tenantId, userId, digestDay])
+  @@index([digestDay])
+  @@schema("crm_flow")
+  @@map("activity_digest_logs")
 }
 
 model ChatContactLink {

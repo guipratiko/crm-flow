@@ -5,6 +5,7 @@ import cors from 'cors';
 import { SERVER_CONFIG } from './config/constants';
 import routes from './routes';
 import publicStatusRoutes from './routes/publicStatus';
+import internalRoutes from './routes/internal';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { prisma } from './lib/prisma';
 
@@ -38,6 +39,7 @@ app.get('/health', async (_req, res) => {
 });
 
 app.use('/api/public', publicStatusRoutes);
+app.use('/api/internal/crm-flow', internalRoutes);
 app.use('/api/crm-flow', routes);
 app.use(notFoundHandler);
 app.use(errorHandler);
