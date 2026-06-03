@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
+import { DATABASE_CONFIG, SERVER_CONFIG } from '../config/constants';
 import { prisma } from '../lib/prisma';
+import packageJson from '../../package.json';
 
 const router = Router();
 
@@ -9,16 +11,9 @@ const router = Router();
  */
 router.get('/status', async (_req: Request, res: Response) => {
   const timestamp = new Date().toISOString();
+  const packageVersion = packageJson.version || '1.0.0';
 
-  let packageVersion = '1.0.0';
-  try {
-    const pkg = require('../../package.json') as { version?: string };
-    if (pkg?.version) packageVersion = pkg.version;
-  } catch {
-    // ignora
-  }
-
-  if (!process.env.DATABASE_URL?.trim()) {
+  if (!DATABASE_CONFIG.URL) {
     res.status(500).json({
       status: 'error',
       service: 'crm-flow',
@@ -39,6 +34,7 @@ router.get('/status', async (_req: Request, res: Response) => {
       version: packageVersion,
       message: 'CRM-Flow API está funcionando',
       timestamp,
+      environment: SERVER_CONFIG.NODE_ENV,
       details: { postgresql: true },
     });
   } catch (err) {

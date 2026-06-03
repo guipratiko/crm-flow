@@ -1,16 +1,10 @@
 import { Response, NextFunction } from 'express';
-import { z } from 'zod';
 import { AuthRequest } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
+import { chatLinkBody } from '../schemas';
 import { createError } from '../middleware/errorHandler';
 import { recordTimeline } from '../services/timelineService';
-
-const linkBody = z.object({
-  crmContactId: z.string().uuid(),
-  chatContactId: z.string().uuid(),
-  chatInstanceId: z.string().min(1),
-  chatChannel: z.enum(['whatsapp', 'instagram']),
-});
+import { requireTenantId, parseBody, asyncHandler } from '../utils/requestContext';
 
 /** GET /chat-links/by-chat/:chatContactId */
 export async function getLinkByChatContact(req: AuthRequest, res: Response, next: NextFunction) {
@@ -48,9 +42,7 @@ export async function listLinksByCrmContact(req: AuthRequest, res: Response, nex
 export async function createChatLink(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const tenantId = req.tenantId!;
-    const parsed = linkBody.safeParse(req.body);
-    if (!parsed.success) return next(createError(parsed.error.errors[0]?.message || 'Dados inválidos'));
-    const data = parsed.data;
+    const data = parseBody(chatLinkBody, req.body);
 
     const contact = await prisma.contact.findFirst({
       where: { id: data.crmContactId, tenantId },

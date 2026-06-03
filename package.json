@@ -8,9 +8,9 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy",
-    "prisma:push": "prisma db push",
-    "setup:db": "prisma db push",
+    "prisma:migrate": "node scripts/prisma-migrate.mjs",
+    "prisma:push": "node scripts/prisma-with-db-url.mjs db push",
+    "setup:db": "node scripts/prisma-with-db-url.mjs db push",
     "setup:db:baseline": "prisma migrate resolve --applied 20260518000000_init",
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
     "postinstall": "prisma generate"

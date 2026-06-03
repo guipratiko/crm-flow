@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { SERVER_CONFIG } from '../config/constants';
 
 export interface AppError extends Error {
   statusCode?: number;
@@ -7,7 +8,7 @@ export interface AppError extends Error {
 
 function sanitizeErrorMessage(err: AppError, statusCode: number): string {
   const msg = err.message || 'Erro interno do servidor';
-  const isProd = process.env.NODE_ENV === 'production';
+  const isProd = SERVER_CONFIG.NODE_ENV === 'production';
   if (isProd && statusCode >= 500) {
     if (/prisma|Can't reach database|database server/i.test(msg)) {
       return 'Falha ao acessar o banco de dados CRM';

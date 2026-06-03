@@ -1,8 +1,8 @@
-process.env.TZ = process.env.TZ || 'America/Sao_Paulo';
-
 import express from 'express';
 import cors from 'cors';
 import { SERVER_CONFIG } from './config/constants';
+
+process.env.TZ = SERVER_CONFIG.TIMEZONE;
 import routes from './routes';
 import publicStatusRoutes from './routes/publicStatus';
 import internalRoutes from './routes/internal';

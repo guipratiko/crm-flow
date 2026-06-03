@@ -14,7 +14,7 @@ Microserviço CRM (contatos, empresas, negócios, funil, atividades) do ecossist
 ```bash
 cp .env.example .env
 # JWT_SECRET = mesmo do Backend OnlyFlow
-# DATABASE_URL = obrigatório (Prisma não usa POSTGRES_URI)
+# DATABASE_URL ou POSTGRES_URI (igual ao Backend)
 npm install
 npm run setup:db
 npm run dev
@@ -33,6 +33,15 @@ npm run setup:db:baseline
 `setup:db` = `prisma db push` (schema `crm_flow`). Pode correr várias vezes.
 
 `setup:db:baseline` = marca a migration como aplicada (uma vez). Se aparecer **P3008**, já está feito — ignore.
+
+**Produção (`onlydb`)** — migrations versionadas:
+
+```bash
+cd CRM-Flow
+POSTGRES_URI='postgres://onlydbflow:PASS@easy.onlyflow.com.br:5435/onlydb?sslmode=disable' npm run prisma:migrate
+```
+
+(Ou coloque `POSTGRES_URI` no `.env` e rode só `npm run prisma:migrate`.)
 
 **Docker** (base nova/vazia): `docker compose up -d crm-flow-db`, `DATABASE_URL=postgresql://crmflow:crmflow@localhost:5434/crmflow`, depois `npm run prisma:migrate`.
 

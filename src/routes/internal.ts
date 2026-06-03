@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireInternalApiKey } from '../middleware/internalApiAuth';
-import * as internalActivities from '../controllers/internalActivitiesController';
+import * as internalActivities from '../controllers/internal/activities';
 
 const router = Router();
 

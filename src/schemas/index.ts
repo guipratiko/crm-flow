@@ -100,3 +100,10 @@ export const pipelineStageCreateBody = z.object({
 export const pipelineStageReorderBody = z.object({
   stageIds: z.array(z.string().uuid()).min(1),
 });
+
+export const chatLinkBody = z.object({
+  crmContactId: z.string().uuid(),
+  chatContactId: z.string().uuid(),
+  chatInstanceId: z.string().min(1),
+  chatChannel: z.enum(['whatsapp', 'instagram']),
+});

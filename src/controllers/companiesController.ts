@@ -5,12 +5,7 @@ import { companyBody } from '../schemas';
 import { createError } from '../middleware/errorHandler';
 import { recordTimeline } from '../services/timelineService';
 import { lookupCnpjFromBrasilApi } from '../services/cnpjLookupService';
-
-function normalizeDocument(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const d = String(value).replace(/\D/g, '');
-  return d.length ? d : null;
-}
+import { normalizeCompanyDocument } from '../utils/companyDocument';
 
 async function assertUniqueDocument(tenantId: string, document: string | null, excludeId?: string) {
   if (!document) return;
@@ -29,7 +24,7 @@ async function assertUniqueDocument(tenantId: string, document: string | null, e
 
 export async function lookupCompanyCnpj(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const document = normalizeDocument(req.params.cnpj);
+    const document = normalizeCompanyDocument(req.params.cnpj);
     if (!document || document.length !== 14) {
       return next(createError('CNPJ inválido.', 400));
     }
@@ -108,7 +103,7 @@ export async function createCompany(req: AuthRequest, res: Response, next: NextF
     const parsed = companyBody.safeParse(req.body);
     if (!parsed.success) return next(createError(parsed.error.errors[0]?.message || 'Dados inválidos'));
     const data = parsed.data;
-    const document = normalizeDocument(data.document);
+    const document = normalizeCompanyDocument(data.document);
     await assertUniqueDocument(tenantId, document);
     const company = await prisma.clientCompany.create({
       data: {
@@ -148,7 +143,9 @@ export async function updateCompany(req: AuthRequest, res: Response, next: NextF
     const existing = await prisma.clientCompany.findFirst({ where: { id: req.params.id, tenantId } });
     if (!existing) return next(createError('Empresa não encontrada', 404));
     const document =
-      parsed.data.document !== undefined ? normalizeDocument(parsed.data.document) : existing.document;
+      parsed.data.document !== undefined
+        ? normalizeCompanyDocument(parsed.data.document)
+        : existing.document;
     await assertUniqueDocument(tenantId, document, req.params.id);
     const company = await prisma.clientCompany.update({
       where: { id: req.params.id },

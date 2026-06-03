@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
+import { ONLYFLOW_INTERNAL_CONFIG } from '../config/constants';
 import { createError } from './errorHandler';
 
 export function requireInternalApiKey(req: Request, _res: Response, next: NextFunction): void {
-  const expected = (process.env.ONLYFLOW_INTERNAL_KEY || process.env.JWT_SECRET || '').trim();
+  const expected = ONLYFLOW_INTERNAL_CONFIG.API_KEY;
   if (!expected) {
     return next(createError('ONLYFLOW_INTERNAL_KEY não configurada no CRM-Flow', 503));
   }

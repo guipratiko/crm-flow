@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { protect, requireTenant } from '../middleware/auth';
 import * as contacts from '../controllers/contactsController';
 import * as companies from '../controllers/companiesController';
-import * as deals from '../controllers/dealsController';
+import * as deals from '../controllers/deals';
 import * as products from '../controllers/productsController';
 import * as activities from '../controllers/activitiesController';
 import * as timeline from '../controllers/timelineController';
