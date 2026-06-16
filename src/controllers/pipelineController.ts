@@ -3,7 +3,7 @@ import { AuthRequest } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
 import { createError } from '../middleware/errorHandler';
 import { pipelineStageBody, pipelineStageCreateBody, pipelineStageReorderBody } from '../schemas';
-import { ensureDefaultPipeline } from '../services/pipelineService';
+import { ensureDefaultPipeline, nextPipelineStageShortId } from '../services/pipelineService';
 
 export const MIN_PIPELINE_STAGES = 5;
 export const MAX_PIPELINE_STAGES = 30;
@@ -25,12 +25,14 @@ export async function createStage(req: AuthRequest, res: Response, next: NextFun
     }
 
     const maxOrder = pipeline.stages.reduce((m, s) => Math.max(m, s.order), -1);
+    const shortId = await nextPipelineStageShortId(tenantId, pipeline.id);
     const stage = await prisma.pipelineStage.create({
       data: {
         tenantId,
         pipelineId: pipeline.id,
         name,
         order: maxOrder + 1,
+        shortId,
         color: parsed.data.color ?? '#3B82F6',
         probability: parsed.data.probability ?? 0,
       },

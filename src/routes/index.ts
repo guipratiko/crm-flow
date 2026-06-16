@@ -5,6 +5,8 @@ import * as companies from '../controllers/companiesController';
 import * as deals from '../controllers/deals';
 import * as products from '../controllers/productsController';
 import * as activities from '../controllers/activitiesController';
+import * as activityTypeDefs from '../controllers/activityTypeDefsController';
+import * as agendaViews from '../controllers/agendaViewsController';
 import * as timeline from '../controllers/timelineController';
 import * as dashboard from '../controllers/dashboardController';
 import * as chatLinks from '../controllers/chatLinksController';
@@ -52,6 +54,18 @@ router.get('/products', products.listProducts);
 router.post('/products', products.createProduct);
 router.put('/products/:id', products.updateProduct);
 router.delete('/products/:id', products.deleteProduct);
+
+router.get('/activity-types', activityTypeDefs.listActivityTypeDefs);
+router.post('/activity-types', activityTypeDefs.createActivityTypeDef);
+router.put('/activity-types/reorder', activityTypeDefs.reorderActivityTypeDefs);
+router.put('/activity-types/:id', activityTypeDefs.updateActivityTypeDef);
+router.delete('/activity-types/:id', activityTypeDefs.deleteActivityTypeDef);
+
+router.get('/agenda-views', agendaViews.listAgendaViews);
+router.post('/agenda-views', agendaViews.createAgendaView);
+router.put('/agenda-views/reorder', agendaViews.reorderAgendaViews);
+router.put('/agenda-views/:id', agendaViews.updateAgendaView);
+router.delete('/agenda-views/:id', agendaViews.deleteAgendaView);
 
 router.get('/activities/deal-summaries', activities.dealActivitySummaries);
 router.get('/activities', activities.listActivities);

@@ -6,12 +6,22 @@ import { recordActivityLinkedTimelines } from '../services/activityTimeline';
 import { buildActivityListWhere } from '../services/activityQuery';
 import { parseDueDate } from '../utils/dateHelpers';
 import { requireTenantId, parseBody, asyncHandler } from '../utils/requestContext';
+import { resolveAgendaViewFilter } from './agendaViewsController';
+import { assertActivityTypeSlugExists } from '../services/activityTypeDefsService';
 
 export const listActivities = asyncHandler(async (req, res) => {
   const tenantId = requireTenantId(req);
+  const viewId = req.query.viewId as string | undefined;
+  let filterConfig = null;
+  if (viewId) {
+    filterConfig = await resolveAgendaViewFilter(tenantId, viewId);
+    if (!filterConfig) throw createError('View de agenda não encontrada', 404);
+  }
+
   const where = buildActivityListWhere(tenantId, {
     status: req.query.status as string | undefined,
     filter: req.query.filter as string | undefined,
+    filterConfig,
     dealId: req.query.dealId as string | undefined,
     contactId: req.query.contactId as string | undefined,
   });
@@ -69,6 +79,8 @@ export const createActivity = asyncHandler(async (req, res) => {
   const tenantId = requireTenantId(req);
   const data = parseBody(activityBody, req.body);
 
+  await assertActivityTypeSlugExists(tenantId, data.type);
+
   const activity = await prisma.activity.create({
     data: {
       tenantId,
@@ -101,6 +113,10 @@ export const updateActivity = asyncHandler(async (req, res) => {
 
   const existing = await prisma.activity.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) throw createError('Atividade não encontrada', 404);
+
+  if (parsed.type) {
+    await assertActivityTypeSlugExists(tenantId, parsed.type);
+  }
 
   const nextDue =
     parsed.dueDate !== undefined ? parseDueDate(parsed.dueDate ?? undefined) : undefined;

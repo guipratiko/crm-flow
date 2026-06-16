@@ -3,7 +3,7 @@ import { prisma } from '../../lib/prisma';
 import { dealBody } from '../../schemas';
 import { createError } from '../../middleware/errorHandler';
 import { recordTimeline } from '../../services/timelineService';
-import { ensureDefaultPipeline } from '../../services/pipelineService';
+import { ensureDefaultPipeline, assertPipelineStageExists } from '../../services/pipelineService';
 import { dealInclude } from '../../prisma/includes';
 import { requireTenantId, parseBody, asyncHandler } from '../../utils/requestContext';
 
@@ -35,10 +35,10 @@ export const createDeal = asyncHandler(async (req, res) => {
   const tenantId = requireTenantId(req);
   const data = parseBody(dealBody, req.body);
   const pipeline = await ensureDefaultPipeline(tenantId);
-  const stageId = data.stageId || pipeline.stages[0]?.id;
-  if (!stageId) throw createError('Funil sem etapas', 500);
+  const stageRef = data.stageId ?? String(pipeline.stages[0]?.shortId ?? pipeline.stages[0]?.id ?? '');
+  if (!stageRef) throw createError('Funil sem etapas', 500);
 
-  const stage = pipeline.stages.find((s) => s.id === stageId);
+  const stage = await assertPipelineStageExists(tenantId, stageRef);
   const deal = await prisma.deal.create({
     data: {
       tenantId,
@@ -46,10 +46,10 @@ export const createDeal = asyncHandler(async (req, res) => {
       description: data.description ?? null,
       value: new Prisma.Decimal(data.value ?? 0),
       status: data.status ?? 'open',
-      probability: data.probability ?? stage?.probability ?? 0,
+      probability: data.probability ?? stage.probability ?? 0,
       expectedCloseDate: data.expectedCloseDate ? new Date(data.expectedCloseDate) : null,
       pipelineId: data.pipelineId ?? pipeline.id,
-      stageId,
+      stageId: stage.id,
       companyId: data.companyId ?? null,
       mainContactId: data.mainContactId ?? null,
       responsibleUserId: data.responsibleUserId ?? req.user?.id ?? null,

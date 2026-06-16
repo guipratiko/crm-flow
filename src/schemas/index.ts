@@ -35,7 +35,7 @@ export const dealBody = z.object({
   probability: z.number().int().min(0).max(100).optional(),
   expectedCloseDate: z.string().datetime().optional().nullable(),
   pipelineId: z.string().uuid().optional(),
-  stageId: z.string().uuid().optional(),
+  stageId: z.string().min(1).optional(),
   companyId: z.string().uuid().optional().nullable(),
   mainContactId: z.string().uuid().optional().nullable(),
   responsibleUserId: z.string().optional().nullable(),
@@ -43,7 +43,7 @@ export const dealBody = z.object({
 });
 
 export const moveStageBody = z.object({
-  stageId: z.string().uuid(),
+  stageId: z.string().min(1),
   lossReason: z.string().optional().nullable(),
 });
 
@@ -63,12 +63,18 @@ export const productBody = z.object({
   name: z.string().min(1),
   description: z.string().optional().nullable(),
   category: z.string().optional().nullable(),
+  sku: z.string().optional().nullable(),
   price: z.number().optional(),
+  costPrice: z.number().optional().nullable(),
+  stock: z.number().int().optional(),
+  size: z.string().optional().nullable(),
+  weight: z.number().optional().nullable(),
+  weightUnit: z.enum(['kg', 'g']).optional().nullable(),
   status: z.enum(['active', 'inactive']).optional(),
 });
 
 export const activityBody = z.object({
-  type: z.enum(['call', 'meeting', 'task', 'email', 'whatsapp', 'followup', 'note']),
+  type: z.string().min(1).max(64),
   title: z.string().min(1),
   description: z.string().optional().nullable(),
   dueDate: z.string().optional().nullable(),

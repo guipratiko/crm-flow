@@ -16,18 +16,6 @@ enum DealStatus {
   @@schema("crm_flow")
 }
 
-enum ActivityType {
-  call
-  meeting
-  task
-  email
-  whatsapp
-  followup
-  note
-
-  @@schema("crm_flow")
-}
-
 enum ActivityStatus {
   pending
   completed
@@ -139,6 +127,7 @@ model PipelineStage {
   pipelineId  String   @map("pipeline_id")
   name        String
   order       Int
+  shortId     Int      @map("short_id")
   color       String   @default("#3B82F6")
   probability Int      @default(0)
   createdAt   DateTime @default(now()) @map("created_at")
@@ -147,6 +136,7 @@ model PipelineStage {
   pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   deals    Deal[]
 
+  @@unique([tenantId, pipelineId, shortId])
   @@index([tenantId, pipelineId])
   @@schema("crm_flow")
   @@map("pipeline_stages")
@@ -225,7 +215,13 @@ model Product {
   name        String
   description String?
   category    String?
+  sku         String?
   price       Decimal       @default(0) @db.Decimal(14, 2)
+  costPrice   Decimal?      @map("cost_price") @db.Decimal(14, 2)
+  stock       Int           @default(0)
+  size        String?
+  weight      Decimal?      @db.Decimal(10, 3)
+  weightUnit  String?       @map("weight_unit")
   status      ProductStatus @default(active)
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
@@ -259,7 +255,7 @@ model DealProduct {
 model Activity {
   id                String         @id @default(uuid())
   tenantId          String         @map("tenant_id")
-  type              ActivityType
+  type              String         @db.VarChar(64)
   title             String
   description       String?
   dueDate           DateTime?      @map("due_date")
@@ -295,6 +291,37 @@ model ActivityDigestLog {
   @@index([digestDay])
   @@schema("crm_flow")
   @@map("activity_digest_logs")
+}
+
+model ActivityTypeDef {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  name      String
+  slug      String   @db.VarChar(64)
+  sortOrder Int      @default(0) @map("sort_order")
+  isSystem  Boolean  @default(false) @map("is_system")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@schema("crm_flow")
+  @@map("activity_type_defs")
+}
+
+model AgendaView {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  name         String
+  sortOrder    Int      @default(0) @map("sort_order")
+  filterConfig Json     @map("filter_config")
+  isSystem     Boolean  @default(false) @map("is_system")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@schema("crm_flow")
+  @@map("agenda_views")
 }
 
 model ChatContactLink {

@@ -4,6 +4,7 @@ import { createError } from '../../middleware/errorHandler';
 import { recordTimeline } from '../../services/timelineService';
 import { dealInclude } from '../../prisma/includes';
 import { requireTenantId, parseBody, asyncHandler } from '../../utils/requestContext';
+import { assertPipelineStageExists } from '../../services/pipelineService';
 
 export const moveDealStage = asyncHandler(async (req, res) => {
   const tenantId = requireTenantId(req);
@@ -15,10 +16,7 @@ export const moveDealStage = asyncHandler(async (req, res) => {
   });
   if (!deal) throw createError('Negócio não encontrado', 404);
 
-  const newStage = await prisma.pipelineStage.findFirst({
-    where: { id: stageId, tenantId },
-  });
-  if (!newStage) throw createError('Etapa não encontrada', 404);
+  const newStage = await assertPipelineStageExists(tenantId, stageId);
 
   const stageNameLower = newStage.name.toLowerCase();
   const isWon = stageNameLower.includes('ganho');
