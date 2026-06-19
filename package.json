@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "node scripts/prisma-migrate.mjs && node dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "node scripts/prisma-migrate.mjs",
     "prisma:push": "node scripts/prisma-with-db-url.mjs db push",
