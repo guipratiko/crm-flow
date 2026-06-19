@@ -20,6 +20,7 @@ import {
   markOverduePushRemindersSent as persistOverduePushRemindersSent,
   markDailyDigestsPushSent as persistDailyDigestsPushSent,
   type DailyDigestPayload,
+  type ReminderQueryOptions,
 } from '../../services/activityReminderService';
 
 export type { DailyDigestPayload };
@@ -34,25 +35,39 @@ function parseTenantIds(req: Request): string[] | undefined {
   return parts;
 }
 
-export async function listPendingReminders(_req: Request, res: Response, next: NextFunction) {
+function parseOptionalInt(raw: unknown): number | undefined {
+  if (raw == null || raw === '') return undefined;
+  const n = parseInt(String(raw), 10);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function parseReminderQuery(req: Request): ReminderQueryOptions {
+  return {
+    tenantIds: parseTenantIds(req),
+    leadMinutes: parseOptionalInt(req.query.leadMinutes),
+    overdueDelayMinutes: parseOptionalInt(req.query.overdueDelayMinutes),
+  };
+}
+
+export async function listPendingReminders(req: Request, res: Response, next: NextFunction) {
   try {
-    res.json({ status: 'success', data: await fetchPendingReminders() });
+    res.json({ status: 'success', data: await fetchPendingReminders(parseReminderQuery(req)) });
   } catch (e) {
     next(e);
   }
 }
 
-export async function listOverdueReminders(_req: Request, res: Response, next: NextFunction) {
+export async function listOverdueReminders(req: Request, res: Response, next: NextFunction) {
   try {
-    res.json({ status: 'success', data: await fetchOverdueReminders() });
+    res.json({ status: 'success', data: await fetchOverdueReminders(parseReminderQuery(req)) });
   } catch (e) {
     next(e);
   }
 }
 
-export async function listDailyDigestTargets(_req: Request, res: Response, next: NextFunction) {
+export async function listDailyDigestTargets(req: Request, res: Response, next: NextFunction) {
   try {
-    res.json({ status: 'success', data: await fetchDailyDigestTargets() });
+    res.json({ status: 'success', data: await fetchDailyDigestTargets(parseTenantIds(req)) });
   } catch (e) {
     next(e);
   }
@@ -60,7 +75,7 @@ export async function listDailyDigestTargets(_req: Request, res: Response, next:
 
 export async function listPendingWhatsappReminders(req: Request, res: Response, next: NextFunction) {
   try {
-    res.json({ status: 'success', data: await fetchPendingWhatsappReminders(parseTenantIds(req)) });
+    res.json({ status: 'success', data: await fetchPendingWhatsappReminders(parseReminderQuery(req)) });
   } catch (e) {
     next(e);
   }
@@ -68,7 +83,7 @@ export async function listPendingWhatsappReminders(req: Request, res: Response, 
 
 export async function listOverdueWhatsappReminders(req: Request, res: Response, next: NextFunction) {
   try {
-    res.json({ status: 'success', data: await fetchOverdueWhatsappReminders(parseTenantIds(req)) });
+    res.json({ status: 'success', data: await fetchOverdueWhatsappReminders(parseReminderQuery(req)) });
   } catch (e) {
     next(e);
   }
@@ -155,25 +170,25 @@ export async function markDailyDigestsWhatsappSent(req: Request, res: Response, 
   }
 }
 
-export async function listPendingPushReminders(_req: Request, res: Response, next: NextFunction) {
+export async function listPendingPushReminders(req: Request, res: Response, next: NextFunction) {
   try {
-    res.json({ status: 'success', data: await fetchPendingPushReminders() });
+    res.json({ status: 'success', data: await fetchPendingPushReminders(parseReminderQuery(req)) });
   } catch (e) {
     next(e);
   }
 }
 
-export async function listOverduePushReminders(_req: Request, res: Response, next: NextFunction) {
+export async function listOverduePushReminders(req: Request, res: Response, next: NextFunction) {
   try {
-    res.json({ status: 'success', data: await fetchOverduePushReminders() });
+    res.json({ status: 'success', data: await fetchOverduePushReminders(parseReminderQuery(req)) });
   } catch (e) {
     next(e);
   }
 }
 
-export async function listDailyDigestPushTargets(_req: Request, res: Response, next: NextFunction) {
+export async function listDailyDigestPushTargets(req: Request, res: Response, next: NextFunction) {
   try {
-    res.json({ status: 'success', data: await fetchDailyDigestPushTargets() });
+    res.json({ status: 'success', data: await fetchDailyDigestPushTargets(parseTenantIds(req)) });
   } catch (e) {
     next(e);
   }

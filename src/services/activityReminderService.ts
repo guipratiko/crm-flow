@@ -27,6 +27,27 @@ export type DailyDigestPayload = {
   items: ReminderRow[];
 };
 
+export type ReminderQueryOptions = {
+  tenantIds?: string[];
+  leadMinutes?: number;
+  overdueDelayMinutes?: number;
+};
+
+function resolveLeadMinutes(value?: number): number {
+  const n = value ?? ACTIVITY_REMINDER_CONFIG.LEAD_MINUTES;
+  return Math.min(240, Math.max(5, Math.round(n)));
+}
+
+function resolveOverdueDelayMinutes(value?: number): number {
+  const n = value ?? 0;
+  return Math.min(120, Math.max(0, Math.round(n)));
+}
+
+function tenantFilter(tenantIds?: string[]) {
+  if (!tenantIds?.length) return {};
+  return { tenantId: { in: tenantIds } };
+}
+
 type ActivityWithRelations = Awaited<ReturnType<typeof prisma.activity.findMany>>[number] & {
   deal?: { title: string } | null;
   contact?: { name: string } | null;
@@ -47,9 +68,10 @@ function mapReminderRow(a: ActivityWithRelations): ReminderRow {
   };
 }
 
-export async function fetchPendingReminders(): Promise<ReminderRow[]> {
+export async function fetchPendingReminders(options?: ReminderQueryOptions): Promise<ReminderRow[]> {
   const now = new Date();
-  const dueBefore = new Date(now.getTime() + ACTIVITY_REMINDER_CONFIG.LEAD_MINUTES * 60_000);
+  const leadMinutes = resolveLeadMinutes(options?.leadMinutes);
+  const dueBefore = new Date(now.getTime() + leadMinutes * 60_000);
   const startToday = startOfLocalDay(now);
 
   const rows = await prisma.activity.findMany({
@@ -57,6 +79,7 @@ export async function fetchPendingReminders(): Promise<ReminderRow[]> {
       status: 'pending',
       dueDate: { not: null, gte: startToday, lte: dueBefore },
       reminderSentAt: null,
+      ...tenantFilter(options?.tenantIds),
     },
     include: activityReminderInclude,
     orderBy: { dueDate: 'asc' },
@@ -66,13 +89,17 @@ export async function fetchPendingReminders(): Promise<ReminderRow[]> {
   return rows.map(mapReminderRow);
 }
 
-export async function fetchOverdueReminders(): Promise<ReminderRow[]> {
+export async function fetchOverdueReminders(options?: ReminderQueryOptions): Promise<ReminderRow[]> {
   const now = new Date();
+  const delayMs = resolveOverdueDelayMinutes(options?.overdueDelayMinutes) * 60_000;
+  const overdueCutoff = new Date(now.getTime() - delayMs);
+
   const rows = await prisma.activity.findMany({
     where: {
       status: 'pending',
-      dueDate: { not: null, lt: now },
+      dueDate: { not: null, lt: overdueCutoff },
       overdueReminderSentAt: null,
+      ...tenantFilter(options?.tenantIds),
     },
     include: activityReminderInclude,
     orderBy: { dueDate: 'asc' },
@@ -82,7 +109,7 @@ export async function fetchOverdueReminders(): Promise<ReminderRow[]> {
   return rows.map(mapReminderRow);
 }
 
-export async function fetchDailyDigestTargets(): Promise<DailyDigestPayload[]> {
+export async function fetchDailyDigestTargets(tenantIds?: string[]): Promise<DailyDigestPayload[]> {
   const now = new Date();
   const startToday = startOfLocalDay(now);
   const endToday = endOfLocalDay(now);
@@ -100,6 +127,7 @@ export async function fetchDailyDigestTargets(): Promise<DailyDigestPayload[]> {
       responsibleUserId: { not: null },
       dueDate: { not: null },
       OR: [{ dueDate: { lt: now } }, { dueDate: { gte: startToday, lte: endToday } }],
+      ...tenantFilter(tenantIds),
     },
     include: activityReminderInclude,
     orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
@@ -170,16 +198,12 @@ export async function markDailyDigestsSent(
   return result.count;
 }
 
-function tenantFilter(tenantIds?: string[]) {
-  if (!tenantIds?.length) return {};
-  return { tenantId: { in: tenantIds } };
-}
-
-export async function fetchPendingWhatsappReminders(tenantIds?: string[]): Promise<ReminderRow[]> {
-  if (tenantIds && tenantIds.length === 0) return [];
+export async function fetchPendingWhatsappReminders(options?: ReminderQueryOptions): Promise<ReminderRow[]> {
+  if (options?.tenantIds && options.tenantIds.length === 0) return [];
 
   const now = new Date();
-  const dueBefore = new Date(now.getTime() + ACTIVITY_REMINDER_CONFIG.LEAD_MINUTES * 60_000);
+  const leadMinutes = resolveLeadMinutes(options?.leadMinutes);
+  const dueBefore = new Date(now.getTime() + leadMinutes * 60_000);
   const startToday = startOfLocalDay(now);
 
   const rows = await prisma.activity.findMany({
@@ -187,7 +211,7 @@ export async function fetchPendingWhatsappReminders(tenantIds?: string[]): Promi
       status: 'pending',
       dueDate: { not: null, gte: startToday, lte: dueBefore },
       reminderWhatsappSentAt: null,
-      ...tenantFilter(tenantIds),
+      ...tenantFilter(options?.tenantIds),
     },
     include: activityReminderInclude,
     orderBy: { dueDate: 'asc' },
@@ -197,16 +221,19 @@ export async function fetchPendingWhatsappReminders(tenantIds?: string[]): Promi
   return rows.map(mapReminderRow);
 }
 
-export async function fetchOverdueWhatsappReminders(tenantIds?: string[]): Promise<ReminderRow[]> {
-  if (tenantIds && tenantIds.length === 0) return [];
+export async function fetchOverdueWhatsappReminders(options?: ReminderQueryOptions): Promise<ReminderRow[]> {
+  if (options?.tenantIds && options.tenantIds.length === 0) return [];
 
   const now = new Date();
+  const delayMs = resolveOverdueDelayMinutes(options?.overdueDelayMinutes) * 60_000;
+  const overdueCutoff = new Date(now.getTime() - delayMs);
+
   const rows = await prisma.activity.findMany({
     where: {
       status: 'pending',
-      dueDate: { not: null, lt: now },
+      dueDate: { not: null, lt: overdueCutoff },
       overdueReminderWhatsappSentAt: null,
-      ...tenantFilter(tenantIds),
+      ...tenantFilter(options?.tenantIds),
     },
     include: activityReminderInclude,
     orderBy: { dueDate: 'asc' },
@@ -355,9 +382,12 @@ export async function markDailyDigestsWhatsappSent(
   return result.count;
 }
 
-export async function fetchPendingPushReminders(): Promise<ReminderRow[]> {
+export async function fetchPendingPushReminders(options?: ReminderQueryOptions): Promise<ReminderRow[]> {
+  if (options?.tenantIds && options.tenantIds.length === 0) return [];
+
   const now = new Date();
-  const dueBefore = new Date(now.getTime() + ACTIVITY_REMINDER_CONFIG.LEAD_MINUTES * 60_000);
+  const leadMinutes = resolveLeadMinutes(options?.leadMinutes);
+  const dueBefore = new Date(now.getTime() + leadMinutes * 60_000);
   const startToday = startOfLocalDay(now);
 
   const rows = await prisma.activity.findMany({
@@ -365,6 +395,7 @@ export async function fetchPendingPushReminders(): Promise<ReminderRow[]> {
       status: 'pending',
       dueDate: { not: null, gte: startToday, lte: dueBefore },
       reminderPushSentAt: null,
+      ...tenantFilter(options?.tenantIds),
     },
     include: activityReminderInclude,
     orderBy: { dueDate: 'asc' },
@@ -374,13 +405,19 @@ export async function fetchPendingPushReminders(): Promise<ReminderRow[]> {
   return rows.map(mapReminderRow);
 }
 
-export async function fetchOverduePushReminders(): Promise<ReminderRow[]> {
+export async function fetchOverduePushReminders(options?: ReminderQueryOptions): Promise<ReminderRow[]> {
+  if (options?.tenantIds && options.tenantIds.length === 0) return [];
+
   const now = new Date();
+  const delayMs = resolveOverdueDelayMinutes(options?.overdueDelayMinutes) * 60_000;
+  const overdueCutoff = new Date(now.getTime() - delayMs);
+
   const rows = await prisma.activity.findMany({
     where: {
       status: 'pending',
-      dueDate: { not: null, lt: now },
+      dueDate: { not: null, lt: overdueCutoff },
       overdueReminderPushSentAt: null,
+      ...tenantFilter(options?.tenantIds),
     },
     include: activityReminderInclude,
     orderBy: { dueDate: 'asc' },
@@ -390,14 +427,16 @@ export async function fetchOverduePushReminders(): Promise<ReminderRow[]> {
   return rows.map(mapReminderRow);
 }
 
-export async function fetchDailyDigestPushTargets(): Promise<DailyDigestPayload[]> {
+export async function fetchDailyDigestPushTargets(tenantIds?: string[]): Promise<DailyDigestPayload[]> {
+  if (tenantIds && tenantIds.length === 0) return [];
+
   const now = new Date();
   const startToday = startOfLocalDay(now);
   const endToday = endOfLocalDay(now);
   const digestDay = localDigestDay(now);
 
   const sentToday = await prisma.activityDigestPushLog.findMany({
-    where: { digestDay },
+    where: { digestDay, ...tenantFilter(tenantIds) },
     select: { tenantId: true, userId: true },
   });
   const sentKey = new Set(sentToday.map((r) => `${r.tenantId}:${r.userId}`));
@@ -408,6 +447,7 @@ export async function fetchDailyDigestPushTargets(): Promise<DailyDigestPayload[
       responsibleUserId: { not: null },
       dueDate: { not: null },
       OR: [{ dueDate: { lt: now } }, { dueDate: { gte: startToday, lte: endToday } }],
+      ...tenantFilter(tenantIds),
     },
     include: activityReminderInclude,
     orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
