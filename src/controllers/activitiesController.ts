@@ -128,7 +128,14 @@ export const updateActivity = asyncHandler(async (req, res) => {
     data: {
       ...parsed,
       dueDate: parsed.dueDate !== undefined ? nextDue : undefined,
-      ...(resetReminders ? { reminderSentAt: null, overdueReminderSentAt: null } : {}),
+      ...(resetReminders
+        ? {
+            reminderSentAt: null,
+            overdueReminderSentAt: null,
+            reminderPushSentAt: null,
+            overdueReminderPushSentAt: null,
+          }
+        : {}),
     },
   });
 

@@ -169,3 +169,311 @@ export async function markDailyDigestsSent(
   });
   return result.count;
 }
+
+function tenantFilter(tenantIds?: string[]) {
+  if (!tenantIds?.length) return {};
+  return { tenantId: { in: tenantIds } };
+}
+
+export async function fetchPendingWhatsappReminders(tenantIds?: string[]): Promise<ReminderRow[]> {
+  if (tenantIds && tenantIds.length === 0) return [];
+
+  const now = new Date();
+  const dueBefore = new Date(now.getTime() + ACTIVITY_REMINDER_CONFIG.LEAD_MINUTES * 60_000);
+  const startToday = startOfLocalDay(now);
+
+  const rows = await prisma.activity.findMany({
+    where: {
+      status: 'pending',
+      dueDate: { not: null, gte: startToday, lte: dueBefore },
+      reminderWhatsappSentAt: null,
+      ...tenantFilter(tenantIds),
+    },
+    include: activityReminderInclude,
+    orderBy: { dueDate: 'asc' },
+    take: ACTIVITY_REMINDER_CONFIG.QUERY_LIMIT,
+  });
+
+  return rows.map(mapReminderRow);
+}
+
+export async function fetchOverdueWhatsappReminders(tenantIds?: string[]): Promise<ReminderRow[]> {
+  if (tenantIds && tenantIds.length === 0) return [];
+
+  const now = new Date();
+  const rows = await prisma.activity.findMany({
+    where: {
+      status: 'pending',
+      dueDate: { not: null, lt: now },
+      overdueReminderWhatsappSentAt: null,
+      ...tenantFilter(tenantIds),
+    },
+    include: activityReminderInclude,
+    orderBy: { dueDate: 'asc' },
+    take: ACTIVITY_REMINDER_CONFIG.QUERY_LIMIT,
+  });
+
+  return rows.map(mapReminderRow);
+}
+
+export async function fetchDailyDigestWhatsappTargets(tenantIds?: string[]): Promise<DailyDigestPayload[]> {
+  if (tenantIds && tenantIds.length === 0) return [];
+
+  const now = new Date();
+  const startToday = startOfLocalDay(now);
+  const endToday = endOfLocalDay(now);
+  const digestDay = localDigestDay(now);
+
+  const sentToday = await prisma.activityDigestWhatsappLog.findMany({
+    where: { digestDay, ...tenantFilter(tenantIds) },
+    select: { tenantId: true, userId: true },
+  });
+  const sentKey = new Set(sentToday.map((r) => `${r.tenantId}:${r.userId}`));
+
+  const activities = await prisma.activity.findMany({
+    where: {
+      status: 'pending',
+      responsibleUserId: { not: null },
+      dueDate: { not: null },
+      OR: [{ dueDate: { lt: now } }, { dueDate: { gte: startToday, lte: endToday } }],
+      ...tenantFilter(tenantIds),
+    },
+    include: activityReminderInclude,
+    orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
+    take: ACTIVITY_REMINDER_CONFIG.DIGEST_ACTIVITY_LIMIT,
+  });
+
+  const byUser = new Map<string, DailyDigestPayload>();
+  const maxItems = ACTIVITY_REMINDER_CONFIG.DIGEST_ITEMS_PER_USER;
+
+  for (const a of activities) {
+    const userId = a.responsibleUserId!;
+    const key = `${a.tenantId}:${userId}`;
+    if (sentKey.has(key)) continue;
+
+    let bucket = byUser.get(key);
+    if (!bucket) {
+      bucket = { tenantId: a.tenantId, userId, overdueCount: 0, todayCount: 0, items: [] };
+      byUser.set(key, bucket);
+    }
+
+    const due = a.dueDate!.getTime();
+    if (due < now.getTime()) bucket.overdueCount += 1;
+    else if (due >= startToday.getTime() && due <= endToday.getTime()) bucket.todayCount += 1;
+    if (bucket.items.length < maxItems) bucket.items.push(mapReminderRow(a));
+  }
+
+  return Array.from(byUser.values()).filter((b) => b.overdueCount + b.todayCount > 0);
+}
+
+/** Resumo diário agregado de toda a conta (titular recebe tudo). */
+export async function fetchTenantDailyDigestWhatsapp(tenantId: string): Promise<DailyDigestPayload | null> {
+  const now = new Date();
+  const startToday = startOfLocalDay(now);
+  const endToday = endOfLocalDay(now);
+  const digestDay = localDigestDay(now);
+
+  const alreadySent = await prisma.activityDigestWhatsappLog.findFirst({
+    where: { tenantId, userId: tenantId, digestDay },
+    select: { id: true },
+  });
+  if (alreadySent) return null;
+
+  const activities = await prisma.activity.findMany({
+    where: {
+      tenantId,
+      status: 'pending',
+      responsibleUserId: { not: null },
+      dueDate: { not: null },
+      OR: [{ dueDate: { lt: now } }, { dueDate: { gte: startToday, lte: endToday } }],
+    },
+    include: activityReminderInclude,
+    orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
+    take: ACTIVITY_REMINDER_CONFIG.DIGEST_ACTIVITY_LIMIT,
+  });
+
+  if (!activities.length) return null;
+
+  const bucket: DailyDigestPayload = {
+    tenantId,
+    userId: tenantId,
+    overdueCount: 0,
+    todayCount: 0,
+    items: [],
+  };
+  const maxItems = ACTIVITY_REMINDER_CONFIG.DIGEST_ITEMS_PER_USER;
+
+  for (const a of activities) {
+    const due = a.dueDate!.getTime();
+    if (due < now.getTime()) bucket.overdueCount += 1;
+    else if (due >= startToday.getTime() && due <= endToday.getTime()) bucket.todayCount += 1;
+    if (bucket.items.length < maxItems) bucket.items.push(mapReminderRow(a));
+  }
+
+  if (bucket.overdueCount + bucket.todayCount === 0) return null;
+  return bucket;
+}
+
+export async function markWhatsappRemindersSent(ids: string[]): Promise<number> {
+  if (!ids.length) return 0;
+  const now = new Date();
+  const result = await prisma.activity.updateMany({
+    where: { id: { in: ids }, reminderWhatsappSentAt: null },
+    data: { reminderWhatsappSentAt: now },
+  });
+  return result.count;
+}
+
+export async function markOverdueWhatsappRemindersSent(ids: string[]): Promise<number> {
+  if (!ids.length) return 0;
+  const now = new Date();
+  const result = await prisma.activity.updateMany({
+    where: { id: { in: ids }, overdueReminderWhatsappSentAt: null },
+    data: { overdueReminderWhatsappSentAt: now },
+  });
+  return result.count;
+}
+
+export async function markDailyDigestsWhatsappSent(
+  entries: Array<{ tenantId?: string; userId?: string }>
+): Promise<number> {
+  const digestDay = localDigestDay();
+  const rows = entries
+    .filter((e) => e && typeof e === 'object')
+    .map((e) => ({
+      tenantId: String(e.tenantId || '').trim(),
+      userId: String(e.userId || '').trim(),
+    }))
+    .filter((r) => r.tenantId && r.userId);
+
+  if (!rows.length) return 0;
+
+  const result = await prisma.activityDigestWhatsappLog.createMany({
+    data: rows.map((r) => ({ tenantId: r.tenantId, userId: r.userId, digestDay })),
+    skipDuplicates: true,
+  });
+  return result.count;
+}
+
+export async function fetchPendingPushReminders(): Promise<ReminderRow[]> {
+  const now = new Date();
+  const dueBefore = new Date(now.getTime() + ACTIVITY_REMINDER_CONFIG.LEAD_MINUTES * 60_000);
+  const startToday = startOfLocalDay(now);
+
+  const rows = await prisma.activity.findMany({
+    where: {
+      status: 'pending',
+      dueDate: { not: null, gte: startToday, lte: dueBefore },
+      reminderPushSentAt: null,
+    },
+    include: activityReminderInclude,
+    orderBy: { dueDate: 'asc' },
+    take: ACTIVITY_REMINDER_CONFIG.QUERY_LIMIT,
+  });
+
+  return rows.map(mapReminderRow);
+}
+
+export async function fetchOverduePushReminders(): Promise<ReminderRow[]> {
+  const now = new Date();
+  const rows = await prisma.activity.findMany({
+    where: {
+      status: 'pending',
+      dueDate: { not: null, lt: now },
+      overdueReminderPushSentAt: null,
+    },
+    include: activityReminderInclude,
+    orderBy: { dueDate: 'asc' },
+    take: ACTIVITY_REMINDER_CONFIG.QUERY_LIMIT,
+  });
+
+  return rows.map(mapReminderRow);
+}
+
+export async function fetchDailyDigestPushTargets(): Promise<DailyDigestPayload[]> {
+  const now = new Date();
+  const startToday = startOfLocalDay(now);
+  const endToday = endOfLocalDay(now);
+  const digestDay = localDigestDay(now);
+
+  const sentToday = await prisma.activityDigestPushLog.findMany({
+    where: { digestDay },
+    select: { tenantId: true, userId: true },
+  });
+  const sentKey = new Set(sentToday.map((r) => `${r.tenantId}:${r.userId}`));
+
+  const activities = await prisma.activity.findMany({
+    where: {
+      status: 'pending',
+      responsibleUserId: { not: null },
+      dueDate: { not: null },
+      OR: [{ dueDate: { lt: now } }, { dueDate: { gte: startToday, lte: endToday } }],
+    },
+    include: activityReminderInclude,
+    orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
+    take: ACTIVITY_REMINDER_CONFIG.DIGEST_ACTIVITY_LIMIT,
+  });
+
+  const byUser = new Map<string, DailyDigestPayload>();
+  const maxItems = ACTIVITY_REMINDER_CONFIG.DIGEST_ITEMS_PER_USER;
+
+  for (const a of activities) {
+    const userId = a.responsibleUserId!;
+    const key = `${a.tenantId}:${userId}`;
+    if (sentKey.has(key)) continue;
+
+    let bucket = byUser.get(key);
+    if (!bucket) {
+      bucket = { tenantId: a.tenantId, userId, overdueCount: 0, todayCount: 0, items: [] };
+      byUser.set(key, bucket);
+    }
+
+    const due = a.dueDate!.getTime();
+    if (due < now.getTime()) bucket.overdueCount += 1;
+    else if (due >= startToday.getTime() && due <= endToday.getTime()) bucket.todayCount += 1;
+    if (bucket.items.length < maxItems) bucket.items.push(mapReminderRow(a));
+  }
+
+  return Array.from(byUser.values()).filter((b) => b.overdueCount + b.todayCount > 0);
+}
+
+export async function markPushRemindersSent(ids: string[]): Promise<number> {
+  if (!ids.length) return 0;
+  const now = new Date();
+  const result = await prisma.activity.updateMany({
+    where: { id: { in: ids }, reminderPushSentAt: null },
+    data: { reminderPushSentAt: now },
+  });
+  return result.count;
+}
+
+export async function markOverduePushRemindersSent(ids: string[]): Promise<number> {
+  if (!ids.length) return 0;
+  const now = new Date();
+  const result = await prisma.activity.updateMany({
+    where: { id: { in: ids }, overdueReminderPushSentAt: null },
+    data: { overdueReminderPushSentAt: now },
+  });
+  return result.count;
+}
+
+export async function markDailyDigestsPushSent(
+  entries: Array<{ tenantId?: string; userId?: string }>
+): Promise<number> {
+  const digestDay = localDigestDay();
+  const rows = entries
+    .filter((e) => e && typeof e === 'object')
+    .map((e) => ({
+      tenantId: String(e.tenantId || '').trim(),
+      userId: String(e.userId || '').trim(),
+    }))
+    .filter((r) => r.tenantId && r.userId);
+
+  if (!rows.length) return 0;
+
+  const result = await prisma.activityDigestPushLog.createMany({
+    data: rows.map((r) => ({ tenantId: r.tenantId, userId: r.userId, digestDay })),
+    skipDuplicates: true,
+  });
+  return result.count;
+}

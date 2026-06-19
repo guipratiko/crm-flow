@@ -263,9 +263,13 @@ model Activity {
   contactId         String?        @map("contact_id")
   companyId         String?        @map("company_id")
   dealId            String?        @map("deal_id")
-  responsibleUserId     String?   @map("responsible_user_id")
-  reminderSentAt        DateTime? @map("reminder_sent_at")
-  overdueReminderSentAt DateTime? @map("overdue_reminder_sent_at")
+  responsibleUserId            String?   @map("responsible_user_id")
+  reminderSentAt               DateTime? @map("reminder_sent_at")
+  overdueReminderSentAt        DateTime? @map("overdue_reminder_sent_at")
+  reminderWhatsappSentAt       DateTime? @map("reminder_whatsapp_sent_at")
+  overdueReminderWhatsappSentAt DateTime? @map("overdue_reminder_whatsapp_sent_at")
+  reminderPushSentAt           DateTime? @map("reminder_push_sent_at")
+  overdueReminderPushSentAt    DateTime? @map("overdue_reminder_push_sent_at")
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime       @updatedAt @map("updated_at")
 
@@ -291,6 +295,32 @@ model ActivityDigestLog {
   @@index([digestDay])
   @@schema("crm_flow")
   @@map("activity_digest_logs")
+}
+
+model ActivityDigestWhatsappLog {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  userId    String   @map("user_id")
+  digestDay DateTime @map("digest_day") @db.Date
+  sentAt    DateTime @default(now()) @map("sent_at")
+
+  @@unique([tenantId, userId, digestDay])
+  @@index([digestDay])
+  @@schema("crm_flow")
+  @@map("activity_digest_whatsapp_logs")
+}
+
+model ActivityDigestPushLog {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  userId    String   @map("user_id")
+  digestDay DateTime @map("digest_day") @db.Date
+  sentAt    DateTime @default(now()) @map("sent_at")
+
+  @@unique([tenantId, userId, digestDay])
+  @@index([digestDay])
+  @@schema("crm_flow")
+  @@map("activity_digest_push_logs")
 }
 
 model ActivityTypeDef {
